@@ -33,10 +33,9 @@ if (!class_exists('Revpanda_WP')) {
         public function init()
         {
             register_activation_hook(__FILE__, array($this, 'create_database_tables'));
+            add_action('wp_ajax_insert_into_database', array($this, 'insert_into_database'));
             add_action('wp_enqueue_scripts', array($this, 'frontend_assets'));
             add_filter('template_include', array($this, 'replace_homepage'));
-            add_action('get_header', array($this, 'replace_header'));
-            //add_action( 'wp_ajax_insert_into_database', array( $this, 'insert_into_database' ) );
         }
 
         /**
@@ -57,7 +56,57 @@ if (!class_exists('Revpanda_WP')) {
                 PRIMARY KEY  (id)) {$charset_collate};";
             require_once ABSPATH . 'wp-admin/includes/upgrade.php';
             dbDelta($sql);
-            add_option('wp_how_to_favs_db_version', $this->db_version);
+            add_option('wp_revpanda_db_version', $this->db_version);
+        }
+
+        /**
+         * Inserting data retrieved via javascript into custom database table
+         *
+         * @since    1.0.0
+         * */
+        public function insert_into_database()
+        {
+            // Security check - verify set nonce
+            if (!wp_verify_nonce($_POST["wp_revpanda_nonce"], "wp_revpanda_nonce")) {
+                exit("Access denied!");
+            }
+            global $wpdb;
+            $table_name = self::get_revpanda_table_name();
+            $data = $_POST["wp_revpanda_data"];
+            $sanitized_field_a = sanitize_text_field($data[0]);
+            $sanitized_field_b = sanitize_text_field($data[1]);
+            $sanitized_field_c = sanitize_text_field($data[2]);
+            $wpdb->insert($table_name, array(
+                'a_database_values' => $sanitized_field_a,
+                'b_database_values' => $sanitized_field_b,
+                'c_database_values' => $sanitized_field_c,
+            ));
+        }
+
+        /**
+         * Get data from database table to be sent and displayed to end users (through javascript)
+         *
+         * @since    1.0.0
+         * */
+        public function get_database_data()
+        {
+            global $wpdb;
+            $table_name = self::get_revpanda_table_name();
+            $table_data = $wpdb->get_results("SELECT * FROM {$table_name}");
+            $validated_data = [];
+            if (!empty($table_data)) {
+                foreach ($table_data as $item => $data) {
+                    $validated_item = [];
+                    $a_database_values = esc_html( $data->a_database_values);
+                    $b_database_values = esc_html( $data->b_database_values);
+                    $c_database_values = esc_html( $data->c_database_values);
+                    $validated_item['a_database_values'] = $a_database_values;
+                    $validated_item['b_database_values'] = $b_database_values;
+                    $validated_item['c_database_values'] = $c_database_values;
+                    array_push($validated_data, $validated_item);
+                }
+            }
+            return $validated_data;
         }
 
         /**
@@ -76,14 +125,15 @@ if (!class_exists('Revpanda_WP')) {
             wp_enqueue_script(
                 'wp-revpanda-script',
                 plugin_dir_url(__FILE__) . 'script.js',
-                [],
+                ['jquery'],
                 $this->version,
                 true
             );
-            $plugin_folder_path = WP_PLUGIN_DIR . '/revpanda';
+            $database_data = $this->get_database_data();
             wp_localize_script('wp-revpanda-script', 'plugin_data', array(
                 'ajax_url' => admin_url('admin-ajax.php'),
-                'plugin_folder_path' => $plugin_folder_path,
+                'wp_revpanda_nonce' => wp_create_nonce('wp_revpanda_nonce'),
+                'database_data' => $database_data
             ));
         }
 
@@ -98,18 +148,6 @@ if (!class_exists('Revpanda_WP')) {
                 return plugin_dir_path(__FILE__) . 'index.php';
             }
             return $template;
-        }
-
-        /**
-         * Replace default header
-         *
-         * @since    1.0.0
-         */
-        public function replace_header()
-        {
-            if (is_front_page()) {
-                include_once plugin_dir_path(__FILE__) . 'header-revpanda.php';
-            }
         }
 
         /**

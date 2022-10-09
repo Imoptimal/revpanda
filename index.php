@@ -1,19 +1,22 @@
 <?php get_header();?>
 <header>
-    <img class="logo">
     <h1>Revpanda Test Project</h1>
 </header>
 <main id="revpanda">
     <section class="input-form">
-        <form>
+        <div>
             <label for="input_a">Input A:</label>
             <input type="text" id="input_a" name="input_a">
+        </div>
+        <div>
             <label for="input_b">Input B:</label>
             <input type="number" id="input_b" name="input_b">
+        </div>
+        <div>
             <label for="input_c">Input C:</label>
             <input type="text" id="input_c" name="input_c">
-            <input id="revpanda-submit" type="submit" value="Submit">
-        </form>
+        </div>
+        <input id="revpanda-submit" type="submit" value="Submit">
     </section>
     <section class="display-results">
         <div class="buttons">
