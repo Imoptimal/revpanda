@@ -34,6 +34,9 @@ if (!class_exists('Revpanda_WP')) {
         {
             register_activation_hook(__FILE__, array($this, 'create_database_tables'));
             add_action('wp_ajax_insert_into_database', array($this, 'insert_into_database'));
+            add_action('wp_ajax_nopriv_insert_into_database', array($this, 'insert_into_database'));
+            add_action('wp_ajax_get_database_data', array($this, 'get_database_data'));
+            add_action('wp_ajax_nopriv_get_database_data', array($this, 'get_database_data'));
             add_action('wp_enqueue_scripts', array($this, 'frontend_assets'));
             add_filter('template_include', array($this, 'replace_homepage'));
         }
@@ -67,7 +70,7 @@ if (!class_exists('Revpanda_WP')) {
         public function insert_into_database()
         {
             // Security check - verify set nonce
-            if (!wp_verify_nonce($_POST["wp_revpanda_nonce"], "wp_revpanda_nonce")) {
+            if (!wp_verify_nonce($_POST["post_revpanda_nonce"], "post_revpanda_nonce")) {
                 exit("Access denied!");
             }
             global $wpdb;
@@ -90,6 +93,10 @@ if (!class_exists('Revpanda_WP')) {
          * */
         public function get_database_data()
         {
+            // Security check - verify set nonce
+            if (!wp_verify_nonce($_GET["get_revpanda_nonce"], "get_revpanda_nonce")) {
+                exit("Access denied!");
+            }
             global $wpdb;
             $table_name = self::get_revpanda_table_name();
             $table_data = $wpdb->get_results("SELECT * FROM {$table_name}");
@@ -106,7 +113,9 @@ if (!class_exists('Revpanda_WP')) {
                     array_push($validated_data, $validated_item);
                 }
             }
-            return $validated_data;
+            /*$json_validated_data = json_encode($validated_data);
+            return $json_validated_data;*/
+            wp_send_json_success($validated_data);
         }
 
         /**
@@ -129,11 +138,11 @@ if (!class_exists('Revpanda_WP')) {
                 $this->version,
                 true
             );
-            $database_data = $this->get_database_data();
+            //$database_data = $this->get_database_data();
             wp_localize_script('wp-revpanda-script', 'plugin_data', array(
                 'ajax_url' => admin_url('admin-ajax.php'),
-                'wp_revpanda_nonce' => wp_create_nonce('wp_revpanda_nonce'),
-                'database_data' => $database_data
+                'post_revpanda_nonce' => wp_create_nonce('post_revpanda_nonce'),
+                'get_revpanda_nonce' => wp_create_nonce('get_revpanda_nonce'),
             ));
         }
 
